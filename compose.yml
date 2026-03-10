@@ -1,0 +1,35 @@
+services:
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=postgres:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=gitea
+      - GITEA__database__PASSWD=gitea
+    ports:
+      - "3000:3000"   # Web UI
+      - "2222:22"     # Gitea SSH (VM SSH stays on port 22)
+    volumes:
+      - gitea_data:/data
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=gitea
+      - POSTGRES_PASSWORD=gitea
+      - POSTGRES_DB=gitea
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  gitea_data:
+  postgres_data:
