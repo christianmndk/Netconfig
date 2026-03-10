@@ -6,6 +6,9 @@
 
 set -e  # Exit on any error
 
+# Resolve the real directory of this script regardless of how it was called
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ─── Config ───────────────────────────────────────────────────────────────────
 TARGET_USER="${1:-$SUDO_USER}"
 NETCONFIG_REPO="https://github.com/YOU/NetConfig.git"  # <-- update this
@@ -71,7 +74,7 @@ usermod -aG docker "$TARGET_USER"
 # ─── 5. Start Gitea + Postgres ────────────────────────────────────────────────
 echo "[5/7] Starting Gitea + Postgres..."
 mkdir -p /opt/netconfig-docker
-cp "$(dirname "$0")/docker/compose.yml" /opt/netconfig-docker/compose.yml
+cp "$SCRIPT_DIR/docker/compose.yml" /opt/netconfig-docker/compose.yml
 docker compose -f /opt/netconfig-docker/compose.yml up -d
 echo "  Waiting for Gitea to be ready..."
 sleep 15
@@ -101,7 +104,7 @@ chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR" "$NETCONFIG_DIR"
 echo "[7/7] Installing systemd watcher and cron job..."
 
 # Install systemd service
-cp "$NETCONFIG_DIR/VELO_TOOLS/netconfig-watcher@.service" /etc/systemd/system/
+cp "$SCRIPT_DIR/VELO_TOOLS/netconfig-watcher@.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable "netconfig-watcher@$TARGET_USER"
 systemctl start "netconfig-watcher@$TARGET_USER"
