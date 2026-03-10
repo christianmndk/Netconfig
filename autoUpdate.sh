@@ -13,10 +13,10 @@ inotifywait -m -e close_write --format '%f' "$MONITOR_DIR" | while read FILE; do
     echo "Change detected: $FILE — committing to Gitea..."
     cd "$MONITOR_DIR"
 
-    git pull origin master --quiet
+    git pull origin main --quiet
     git add "$FILE"
     git commit -m "Auto backup: $FILE ($(date +'%Y-%m-%d %H:%M'))"
-    git push origin master
+    git push origin main
 
     if [[ $? -eq 0 ]]; then
         echo "  Pushed: $FILE"
