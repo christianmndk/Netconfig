@@ -1,0 +1,137 @@
+#!/bin/bash
+# /etc/update-motd.d/99-netconfig
+# NetConfig MOTD — shown on every SSH login
+# Install: sudo cp 99-netconfig /etc/update-motd.d/ && sudo chmod +x /etc/update-motd.d/99-netconfig
+# Disable default motd parts: sudo chmod -x /etc/update-motd.d/10-uname 2>/dev/null; sudo chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null
+
+BACKUP_DIR="/home/$(ls /home | head -1)/network-backups"
+DEVICES_FILE="$(ls /home/*/NetConfig/devices.yml 2>/dev/null | head -1)"
+LOG_FILE="$BACKUP_DIR/cron.log"
+
+# ─── Colours ──────────────────────────────────────────────────────────────────
+R='\033[0;31m'  # red
+G='\033[0;32m'  # green
+Y='\033[0;33m'  # yellow
+B='\033[0;34m'  # blue
+C='\033[0;36m'  # cyan
+W='\033[1;37m'  # white bold
+D='\033[2;37m'  # dim
+N='\033[0m'     # reset
+
+# ─── System info ──────────────────────────────────────────────────────────────
+HOSTNAME=$(hostname)
+IP=$(hostname -I | awk '{print $1}')
+UPTIME=$(uptime -p | sed 's/up //')
+LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
+LAST_LOGIN=$(last -n 2 -F | grep -v "^$(whoami)" | grep -v "^$" | grep -v "wtmp" | head -1 | awk '{print $1, $4, $5, $6, $7, $8}')
+DISK_USE=$(df -h / | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
+MEM_USE=$(free -h | awk 'NR==2 {print $3 " / " $2}')
+
+# ─── Watcher service status ───────────────────────────────────────────────────
+WATCHER_USER=$(ls /home 2>/dev/null | head -1)
+WATCHER_STATUS=$(systemctl is-active "netconfig-watcher@$WATCHER_USER" 2>/dev/null)
+if [[ "$WATCHER_STATUS" == "active" ]]; then
+    WATCHER_DISPLAY="${G}● running${N}"
+else
+    WATCHER_DISPLAY="${R}● stopped${N}"
+fi
+
+# ─── Gitea status ─────────────────────────────────────────────────────────────
+GITEA_STATUS=$(docker inspect --format '{{.State.Status}}' gitea 2>/dev/null)
+if [[ "$GITEA_STATUS" == "running" ]]; then
+    GITEA_DISPLAY="${G}● running${N}  → http://$IP:3000"
+else
+    GITEA_DISPLAY="${R}● stopped${N}"
+fi
+
+# ─── Device count from devices.yml ───────────────────────────────────────────
+if [[ -f "$DEVICES_FILE" ]]; then
+    DEVICE_COUNT=$(grep -c '^\s*- name:' "$DEVICES_FILE" 2>/dev/null || echo "0")
+else
+    DEVICE_COUNT="?"
+fi
+
+# ─── Last backup run results from cron.log ────────────────────────────────────
+if [[ -f "$LOG_FILE" ]]; then
+    # Find the last backup session
+    LAST_RUN=$(grep "Starting network backup" "$LOG_FILE" | tail -1 | grep -oP '\w+ \w+ +\d+ \d+:\d+:\d+ \w+ \d+' || echo "never")
+    LAST_COMPLETE=$(grep "Backup complete" "$LOG_FILE" | tail -1)
+
+    if [[ -n "$LAST_COMPLETE" ]]; then
+        OK_COUNT=$(grep -A 200 "$(grep 'Starting network backup' "$LOG_FILE" | tail -1)" "$LOG_FILE" \
+            | grep -c "  OK:" 2>/dev/null || echo "0")
+        FAIL_COUNT=$(grep -A 200 "$(grep 'Starting network backup' "$LOG_FILE" | tail -1)" "$LOG_FILE" \
+            | grep -c "  FAILED:" 2>/dev/null || echo "0")
+
+        if [[ "$FAIL_COUNT" -eq 0 ]]; then
+            BACKUP_RESULT="${G}${OK_COUNT}/${DEVICE_COUNT} OK${N}"
+        else
+            BACKUP_RESULT="${R}${OK_COUNT}/${DEVICE_COUNT} OK  ${FAIL_COUNT} FAILED${N}"
+        fi
+    else
+        BACKUP_RESULT="${Y}in progress or no data yet${N}"
+    fi
+else
+    LAST_RUN="no log yet"
+    BACKUP_RESULT="${D}not run yet${N}"
+fi
+
+# ─── Last 3 git commits in backup repo ───────────────────────────────────────
+if [[ -d "$BACKUP_DIR/.git" ]]; then
+    RECENT_COMMITS=$(git -C "$BACKUP_DIR" log --oneline -3 2>/dev/null \
+        | awk '{print "  " $0}' || echo "  no commits yet")
+else
+    RECENT_COMMITS="  repo not initialised yet — run setup-gitea.sh"
+fi
+
+# ─── Output ───────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${W}  ╔══════════════════════════════════════════════════════════╗${N}"
+echo -e "${W}  ║              NetConfig — Network Backup Server           ║${N}"
+echo -e "${W}  ╚══════════════════════════════════════════════════════════╝${N}"
+echo ""
+echo -e "${C}  System${N}"
+echo -e "  ${D}Hostname${N}   $HOSTNAME"
+echo -e "  ${D}IP${N}         $IP"
+echo -e "  ${D}Uptime${N}     $UPTIME"
+echo -e "  ${D}Load${N}       $LOAD"
+echo -e "  ${D}Disk${N}       $DISK_USE"
+echo -e "  ${D}Memory${N}     $MEM_USE"
+echo -e "  ${D}Last login${N} $LAST_LOGIN"
+echo ""
+echo -e "${C}  Services${N}"
+echo -e "  ${D}Gitea${N}      $GITEA_DISPLAY"
+echo -e "  ${D}Watcher${N}    $WATCHER_DISPLAY"
+echo ""
+echo -e "${C}  Last backup run${N}   ${D}$LAST_RUN${N}"
+echo -e "  Result:  $BACKUP_RESULT   (${DEVICE_COUNT} devices configured)"
+echo ""
+echo -e "${C}  Recent commits${N}"
+echo -e "${D}$RECENT_COMMITS${N}"
+echo ""
+echo -e "${W}  ╔══════════════════════════════════════════════════════════╗${N}"
+echo -e "${W}  ║  Quick reference                                         ║${N}"
+echo -e "${W}  ╠══════════════════════════════════════════════════════════╣${N}"
+echo -e "${W}  ║${N}  ${C}Folders${N}                                                  ${W}║${N}"
+echo -e "${W}  ║${N}  ~/NetConfig/          Scripts, devices.yml, setup files  ${W}║${N}"
+echo -e "${W}  ║${N}  ~/network-backups/    Device config files + git repo      ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Manual backup${N}                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ~/NetConfig/GetConfigs.sh                                 ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Edit devices${N}                                             ${W}║${N}"
+echo -e "${W}  ║${N}  nano ~/NetConfig/devices.yml                              ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Edit cron schedule${N}  (default: daily at 02:00)           ${W}║${N}"
+echo -e "${W}  ║${N}  crontab -e                                                ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Backup log${N}                                               ${W}║${N}"
+echo -e "${W}  ║${N}  tail -f ~/network-backups/cron.log                        ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Watcher service${N}                                          ${W}║${N}"
+echo -e "${W}  ║${N}  sudo systemctl restart netconfig-watcher@$WATCHER_USER        ${W}║${N}"
+echo -e "${W}  ║${N}                                                            ${W}║${N}"
+echo -e "${W}  ║${N}  ${C}Add SSH key to Cisco device${N}                              ${W}║${N}"
+echo -e "${W}  ║${N}  ~/NetConfig/cisco-ssh-key.sh admin SW01                  ${W}║${N}"
+echo -e "${W}  ╚══════════════════════════════════════════════════════════╝${N}"
+echo ""

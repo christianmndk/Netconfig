@@ -29,7 +29,7 @@ echo "======================================"
 echo ""
 
 # ─── 1. System update ─────────────────────────────────────────────────────────
-echo "[1/7] Updating system..."
+echo "[1/8] Updating system..."
 apt-get update -qq && apt-get upgrade -y -qq
 apt-get install -y -qq \
     curl git ufw fail2ban \
@@ -37,7 +37,7 @@ apt-get install -y -qq \
     ca-certificates gnupg lsb-release
 
 # ─── 2. SSH hardening ─────────────────────────────────────────────────────────
-echo "[2/7] Hardening SSH..."
+echo "[2/8] Hardening SSH..."
 cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
 PermitRootLogin no
 PasswordAuthentication no
@@ -47,7 +47,7 @@ EOF
 systemctl reload ssh
 
 # ─── 3. Firewall ──────────────────────────────────────────────────────────────
-echo "[3/7] Configuring firewall..."
+echo "[3/8] Configuring firewall..."
 ufw --force reset
 ufw default deny incoming
 ufw default allow outgoing
@@ -57,7 +57,7 @@ ufw allow 2222/tcp  # Gitea SSH
 ufw --force enable
 
 # ─── 4. Docker ────────────────────────────────────────────────────────────────
-echo "[4/7] Installing Docker..."
+echo "[4/8] Installing Docker..."
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg \
     | gpg --yes --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -72,7 +72,7 @@ apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plug
 usermod -aG docker "$TARGET_USER"
 
 # ─── 5. Start Gitea + Postgres ────────────────────────────────────────────────
-echo "[5/7] Starting Gitea + Postgres..."
+echo "[5/8] Starting Gitea + Postgres..."
 mkdir -p /opt/netconfig-docker
 cp "$SCRIPT_DIR/compose.yml" /opt/netconfig-docker/compose.yml
 docker compose -f /opt/netconfig-docker/compose.yml up -d
@@ -80,7 +80,7 @@ echo "  Waiting for Gitea to be ready..."
 sleep 15
 
 # ─── 6. Create backup dir + set git identity ──────────────────────────────────
-echo "[6/7] Preparing backup directory..."
+echo "[6/8] Preparing backup directory..."
 mkdir -p "$BACKUP_DIR"
 chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 
@@ -92,7 +92,7 @@ sudo -u "$TARGET_USER" git config --global user.email "$TARGET_USER@netconfig.lo
 chmod +x "$SCRIPT_DIR/"*.sh
 
 # ─── 7. systemd watcher + cron (disabled until Gitea is ready) ───────────────
-echo "[7/7] Installing systemd watcher and cron job..."
+echo "[7/8] Installing systemd watcher and cron job..."
 
 cp "$SCRIPT_DIR/netconfig-watcher@.service" /etc/systemd/system/
 systemctl daemon-reload
@@ -102,6 +102,19 @@ systemctl daemon-reload
 # Install cron job (runs GetConfigs.sh at 02:00 nightly)
 CRON_JOB="0 2 * * * $SCRIPT_DIR/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
 (crontab -u "$TARGET_USER" -l 2>/dev/null; echo "$CRON_JOB") | crontab -u "$TARGET_USER" -
+
+# ─── 8. MOTD ──────────────────────────────────────────────────────────────────
+echo "[8/8] Installing MOTD..."
+
+# Disable noisy default motd parts
+chmod -x /etc/update-motd.d/10-uname 2>/dev/null || true
+chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
+chmod -x /etc/update-motd.d/80-esm 2>/dev/null || true
+chmod -x /etc/update-motd.d/91-release-upgrade 2>/dev/null || true
+
+# Install ours
+cp "$SCRIPT_DIR/99-netconfig" /etc/update-motd.d/99-netconfig
+chmod +x /etc/update-motd.d/99-netconfig
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
 SERVER_IP=$(hostname -I | awk '{print $1}')
