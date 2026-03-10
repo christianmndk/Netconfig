@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=%i
-ExecStart=/home/%i/NetConfig/VELO_TOOLS/autoUpdate.sh
+ExecStart=/home/%i/NetConfig/autoUpdate.sh
 Restart=on-failure
 RestartSec=10
 

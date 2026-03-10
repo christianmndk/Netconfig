@@ -60,7 +60,7 @@ ufw --force enable
 echo "[4/7] Installing Docker..."
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg \
-    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    | gpg --yes --dearmor -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
 
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
@@ -74,7 +74,7 @@ usermod -aG docker "$TARGET_USER"
 # ─── 5. Start Gitea + Postgres ────────────────────────────────────────────────
 echo "[5/7] Starting Gitea + Postgres..."
 mkdir -p /opt/netconfig-docker
-cp "$SCRIPT_DIR/docker/compose.yml" /opt/netconfig-docker/compose.yml
+cp "$SCRIPT_DIR/compose.yml" /opt/netconfig-docker/compose.yml
 docker compose -f /opt/netconfig-docker/compose.yml up -d
 echo "  Waiting for Gitea to be ready..."
 sleep 15
@@ -95,22 +95,22 @@ if [[ ! -d "$NETCONFIG_DIR" ]]; then
 fi
 
 # Make scripts executable
-chmod +x "$NETCONFIG_DIR/VELO_TOOLS/"*.sh
+chmod +x "$SCRIPT_DIR/"*.sh
 
 # Fix ownership
-chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR" "$NETCONFIG_DIR"
+chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 
 # ─── 7. systemd watcher service + cron ───────────────────────────────────────
 echo "[7/7] Installing systemd watcher and cron job..."
 
 # Install systemd service
-cp "$SCRIPT_DIR/VELO_TOOLS/netconfig-watcher@.service" /etc/systemd/system/
+cp "$SCRIPT_DIR/netconfig-watcher@.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable "netconfig-watcher@$TARGET_USER"
 systemctl start "netconfig-watcher@$TARGET_USER"
 
 # Install cron job (runs GetConfigs.sh at 02:00 nightly)
-CRON_JOB="0 2 * * * $NETCONFIG_DIR/VELO_TOOLS/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
+CRON_JOB="0 2 * * * $SCRIPT_DIR/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
 (crontab -u "$TARGET_USER" -l 2>/dev/null; echo "$CRON_JOB") | crontab -u "$TARGET_USER" -
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ echo ""
 echo "  Gitea web UI : http://$SERVER_IP:3000"
 echo "  Gitea SSH    : ssh://git@$SERVER_IP:2222"
 echo "  Backup dir   : $BACKUP_DIR"
-echo "  Scripts      : $NETCONFIG_DIR/VELO_TOOLS/"
+echo "  Scripts      : $SCRIPT_DIR"
 echo ""
 echo "  Next steps:"
 echo "  1. Go to http://$SERVER_IP:3000 and complete Gitea setup"
