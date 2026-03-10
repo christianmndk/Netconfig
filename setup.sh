@@ -79,35 +79,25 @@ docker compose -f /opt/netconfig-docker/compose.yml up -d
 echo "  Waiting for Gitea to be ready..."
 sleep 15
 
-# ─── 6. Clone NetConfig repo + set up backup dir ──────────────────────────────
-echo "[6/7] Setting up NetConfig repo and backup directory..."
+# ─── 6. Create backup dir + set git identity ──────────────────────────────────
+echo "[6/7] Preparing backup directory..."
 mkdir -p "$BACKUP_DIR"
-
-# Init backup dir as a git repo pointing at Gitea
-# (After setup, create the repo in Gitea UI at http://YOUR_IP:3000 first)
-cd "$BACKUP_DIR"
-git init
-git remote add origin "http://localhost:3000/$TARGET_USER/network-backups.git" || true
-
-# Clone the NetConfig scripts repo
-if [[ ! -d "$NETCONFIG_DIR" ]]; then
-    sudo -u "$TARGET_USER" git clone "$NETCONFIG_REPO" "$NETCONFIG_DIR"
-fi
-
-# Make scripts executable
-chmod +x "$SCRIPT_DIR/"*.sh
-
-# Fix ownership
 chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 
-# ─── 7. systemd watcher service + cron ───────────────────────────────────────
+# Set git identity so commits don't fail
+sudo -u "$TARGET_USER" git config --global user.name "$TARGET_USER"
+sudo -u "$TARGET_USER" git config --global user.email "$TARGET_USER@netconfig.local"
+
+# Make all scripts executable
+chmod +x "$SCRIPT_DIR/"*.sh
+
+# ─── 7. systemd watcher + cron (disabled until Gitea is ready) ───────────────
 echo "[7/7] Installing systemd watcher and cron job..."
 
-# Install systemd service
 cp "$SCRIPT_DIR/netconfig-watcher@.service" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable "netconfig-watcher@$TARGET_USER"
-systemctl start "netconfig-watcher@$TARGET_USER"
+# NOTE: watcher is installed but NOT started yet — run setup-gitea.sh after
+# configuring Gitea to start it properly.
 
 # Install cron job (runs GetConfigs.sh at 02:00 nightly)
 CRON_JOB="0 2 * * * $SCRIPT_DIR/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
@@ -117,21 +107,21 @@ CRON_JOB="0 2 * * * $SCRIPT_DIR/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo ""
 echo "======================================"
-echo "  Setup complete!"
+echo "  Step 1 complete!"
 echo "======================================"
 echo ""
 echo "  Gitea web UI : http://$SERVER_IP:3000"
-echo "  Gitea SSH    : ssh://git@$SERVER_IP:2222"
-echo "  Backup dir   : $BACKUP_DIR"
-echo "  Scripts      : $SCRIPT_DIR"
 echo ""
-echo "  Next steps:"
-echo "  1. Go to http://$SERVER_IP:3000 and complete Gitea setup"
-echo "  2. Create a repo called 'network-backups' in Gitea"
-echo "  3. Add your SSH key to each network device"
-echo "  4. Update NETCONFIG_REPO in setup.sh to point at your Gitea"
-echo "  5. Edit devices.yml with your actual device IPs"
-echo ""
-echo "  Watcher service: systemctl status netconfig-watcher@$TARGET_USER"
-echo "  Cron job added for user: $TARGET_USER"
+echo "  ┌─ NEXT STEPS ──────────────────────────────────────────────┐"
+echo "  │                                                           │"
+echo "  │  1. Go to http://$SERVER_IP:3000                         │"
+echo "  │  2. Complete the Gitea first-run wizard                  │"
+echo "  │     - Use these DB settings (already running):           │"
+echo "  │       Type: PostgreSQL                                    │"
+echo "  │       Host: postgres:5432                                 │"
+echo "  │       User: gitea  Password: gitea  DB: gitea            │"
+echo "  │  3. Create your admin account (use username: $TARGET_USER) │"
+echo "  │  4. Then run: bash $SCRIPT_DIR/setup-gitea.sh            │"
+echo "  │                                                           │"
+echo "  └───────────────────────────────────────────────────────────┘"
 echo ""
