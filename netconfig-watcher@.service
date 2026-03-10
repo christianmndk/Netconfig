@@ -1,0 +1,13 @@
+[Unit]
+Description=NetConfig — auto-commit watcher for network-backups
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+ExecStart=/home/%i/NetConfig/VELO_TOOLS/autoUpdate.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
