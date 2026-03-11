@@ -1,25 +1,34 @@
 #!/bin/bash
-# setup.sh — One-shot VM setup for NetConfig server
-# Run as root on a fresh Debian/Ubuntu terminal install.
-# Usage: sudo ./setup.sh YOUR_USERNAME
-# Example: sudo ./setup.sh admin
+# setup.sh — One-shot VM/CT setup for NetConfig server
+# Run as root on a fresh Debian/Ubuntu/CT install.
+#
+# On a VM with a normal user:   sudo ./setup.sh YOUR_USERNAME
+# On a root-only CT:            ./setup.sh root
 
-set -e  # Exit on any error
+set -e
 
 # Resolve the real directory of this script regardless of how it was called
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-TARGET_USER="${1:-$SUDO_USER}"
+# If no argument given, use SUDO_USER (VM) or fall back to root (CT)
+TARGET_USER="${1:-${SUDO_USER:-root}}"
 NETCONFIG_REPO="https://github.com/YOU/NetConfig.git"  # <-- update this
 BACKUP_DIR="/home/$TARGET_USER/network-backups"
-NETCONFIG_DIR="/home/$TARGET_USER/NetConfig"
+[[ "$TARGET_USER" == "root" ]] && BACKUP_DIR="/root/network-backups"
 # ──────────────────────────────────────────────────────────────────────────────
 
-if [[ -z "$TARGET_USER" ]]; then
-    echo "Usage: sudo ./setup.sh YOUR_USERNAME"
-    exit 1
-fi
+# Helper: run a command as TARGET_USER without requiring sudo
+# On a normal system uses sudo -u, on root-only CT uses su -c or runs directly
+run_as_user() {
+    if [[ "$TARGET_USER" == "root" ]] || [[ "$(whoami)" == "$TARGET_USER" ]]; then
+        bash -c "$*"
+    elif command -v sudo &>/dev/null; then
+        sudo -u "$TARGET_USER" bash -c "$*"
+    else
+        su -l "$TARGET_USER" -c "$*"
+    fi
+}
 
 echo ""
 echo "======================================"
@@ -38,13 +47,23 @@ apt-get install -y -qq \
 
 # ─── 2. SSH hardening ─────────────────────────────────────────────────────────
 echo "[2/8] Hardening SSH..."
-cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
+if [[ "$TARGET_USER" == "root" ]]; then
+    # Root-only CT — keep root login but enforce key-only
+    cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+PubkeyAuthentication yes
+X11Forwarding no
+EOF
+else
+    cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
 PermitRootLogin no
 PasswordAuthentication no
 PubkeyAuthentication yes
 X11Forwarding no
 EOF
-systemctl reload ssh
+fi
+systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
 
 # ─── 3. Firewall ──────────────────────────────────────────────────────────────
 echo "[3/8] Configuring firewall..."
@@ -69,7 +88,7 @@ $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 
 apt-get update -qq
 apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
-usermod -aG docker "$TARGET_USER"
+[[ "$TARGET_USER" != "root" ]] && usermod -aG docker "$TARGET_USER" || true
 
 # ─── 5. Start Gitea + Postgres ────────────────────────────────────────────────
 echo "[5/8] Starting Gitea + Postgres..."
@@ -82,11 +101,11 @@ sleep 15
 # ─── 6. Create backup dir + set git identity ──────────────────────────────────
 echo "[6/8] Preparing backup directory..."
 mkdir -p "$BACKUP_DIR"
-chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
+[[ "$TARGET_USER" != "root" ]] && chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR" || true
 
 # Set git identity so commits don't fail
-sudo -u "$TARGET_USER" git config --global user.name "$TARGET_USER"
-sudo -u "$TARGET_USER" git config --global user.email "$TARGET_USER@netconfig.local"
+run_as_user "git config --global user.name '$TARGET_USER'"
+run_as_user "git config --global user.email '$TARGET_USER@netconfig.local'"
 
 # Make all scripts executable
 chmod +x "$SCRIPT_DIR/"*.sh
@@ -101,7 +120,7 @@ systemctl daemon-reload
 
 # Install cron job (runs GetConfigs.sh at 02:00 nightly)
 CRON_JOB="0 2 * * * $SCRIPT_DIR/GetConfigs.sh >> $BACKUP_DIR/cron.log 2>&1"
-(crontab -u "$TARGET_USER" -l 2>/dev/null; echo "$CRON_JOB") | crontab -u "$TARGET_USER" -
+run_as_user "(crontab -l 2>/dev/null; echo '$CRON_JOB') | crontab -"
 
 # ─── 8. MOTD ──────────────────────────────────────────────────────────────────
 echo "[8/8] Installing MOTD..."
