@@ -8,8 +8,8 @@
 
 set -e
 
-# Must NOT be run as root — the service and git config need the real user
-if [[ "$EUID" -eq 0 ]]; then
+# Block sudo but allow direct root login
+if [[ "$EUID" -eq 0 && -n "$SUDO_USER" ]]; then
     echo ""
     echo "  ERROR: Do not run this script with sudo."
     echo "  Run it as your normal user: bash setup-gitea.sh"
