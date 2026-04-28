@@ -21,7 +21,7 @@ watches for file changes in real time.
 
 ### Prerequisites
 - Fresh Debian or Ubuntu install (terminal only)
-- You are logged in as your normal user (e.g. `feet`)
+- You are logged in as your normal user (e.g. `Gitra_adm`)
 - SSH key already on the VM
 
 ---
@@ -36,7 +36,7 @@ cd NetConfig
 sudo ./setup.sh YOUR_USERNAME
 ```
 
-Replace `YOUR_USERNAME` with your actual login name (e.g. `feet`).
+Replace `YOUR_USERNAME` with your actual login name (e.g. `Gitra_adm`).
 
 This will:
 - Update the system and install dependencies
@@ -70,7 +70,7 @@ Fill in the first-run wizard with these settings:
 | Password | `gitea` |
 
 Scroll down to **Administrator account** and create your admin user.
-Use the same username as your Linux user (e.g. `feet`) to keep things simple.
+Use the same username as your Linux user (e.g. `Gitra_adm`) to keep things simple.
 
 Click **Install Gitea** and wait for it to finish.
 
