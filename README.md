@@ -56,7 +56,7 @@ When it finishes it will print the IP and tell you to continue to Step 2.
 Open a browser and go to:
 
 ```
-http://YOUR_VM_IP:3000
+http://YOUR_VM_IP
 ```
 
 Fill in the first-run wizard with these settings:
@@ -104,7 +104,7 @@ sudo systemctl status netconfig-watcher@YOUR_USERNAME
 Trigger a test commit:
 ```bash
 touch ~/network-backups/test.conf
-# Wait a few seconds, then check http://YOUR_VM_IP:3000
+# Wait a few seconds, then check http://YOUR_VM_IP
 ```
 
 Check the nightly cron is registered:
