@@ -12,7 +12,7 @@ services:
       - GITEA__database__USER=gitea
       - GITEA__database__PASSWD=gitea
     ports:
-      - "3000:3000"   # Web UI
+      - "80:3000"   # Web UI
       - "2222:22"     # Gitea SSH (VM SSH stays on port 22)
     volumes:
       - gitea_data:/data
