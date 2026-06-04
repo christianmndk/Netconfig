@@ -43,7 +43,7 @@ wait_for_gitea() {
             echo -e "  ${G}✓${N} Gitea is ready"
             return 0
         fi
-        ((attempts++))
+        attempts=$((attempts + 1))
         sleep 2
     done
     echo -e "  ${R}✗ Gitea did not start in time. Check: docker logs gitea${N}"
