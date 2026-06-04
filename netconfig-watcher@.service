@@ -5,9 +5,12 @@ After=network.target
 [Service]
 Type=simple
 User=%i
-ExecStart=/home/%i/NetConfig/autoUpdate.sh
+ExecStart=/opt/netconfig/autoUpdate.sh
 Restart=on-failure
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+
+# NOTE: install.sh overwrites this file in /etc/systemd/system/ with the
+# correct ExecStart path at install time. This copy in the repo is a template.

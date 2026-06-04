@@ -1,4 +1,0 @@
-# cron_config — paste these lines into crontab with: crontab -e
-#
-# Pull configs from all network devices at 02:00 every night
-0 2 * * * /home/YOUR_USER/NetConfig/VELO_TOOLS/GetConfigs.sh >> /home/YOUR_USER/network-backups/cron.log 2>&1

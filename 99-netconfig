@@ -4,8 +4,11 @@
 # Install: sudo cp 99-netconfig /etc/update-motd.d/ && sudo chmod +x /etc/update-motd.d/99-netconfig
 # Disable default motd parts: sudo chmod -x /etc/update-motd.d/10-uname 2>/dev/null; sudo chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null
 
-BACKUP_DIR="/home/$(ls /home | head -1)/network-backups"
-DEVICES_FILE="$(ls /home/*/NetConfig/devices.yml 2>/dev/null | head -1)"
+[[ -f /etc/netconfig.conf ]] && source /etc/netconfig.conf
+NETCONFIG_USER="${NETCONFIG_USER:-$(ls /home 2>/dev/null | head -1)}"
+NETCONFIG_HOME="${NETCONFIG_HOME:-/home/$NETCONFIG_USER}"
+BACKUP_DIR="${NETCONFIG_BACKUP_DIR:-$NETCONFIG_HOME/network-backups}"
+DEVICES_FILE="${NETCONFIG_SCRIPT_DIR:-$NETCONFIG_HOME/NetConfig}/devices.yml"
 LOG_FILE="$BACKUP_DIR/cron.log"
 
 # ─── Colours ──────────────────────────────────────────────────────────────────
@@ -28,7 +31,7 @@ DISK_USE=$(df -h / | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
 MEM_USE=$(free -h | awk 'NR==2 {print $3 " / " $2}')
 
 # ─── Watcher service status ───────────────────────────────────────────────────
-WATCHER_USER=$(ls /home 2>/dev/null | head -1)
+WATCHER_USER="$NETCONFIG_USER"
 WATCHER_STATUS=$(systemctl is-active "netconfig-watcher@$WATCHER_USER" 2>/dev/null)
 if [[ "$WATCHER_STATUS" == "active" ]]; then
     WATCHER_DISPLAY="${G}● running${N}"
@@ -39,7 +42,7 @@ fi
 # ─── Gitea status ─────────────────────────────────────────────────────────────
 GITEA_STATUS=$(docker inspect --format '{{.State.Status}}' gitea 2>/dev/null)
 if [[ "$GITEA_STATUS" == "running" ]]; then
-    GITEA_DISPLAY="${G}● running${N}  → http://$IP:3000"
+    GITEA_DISPLAY="${G}● running${N}  → http://$IP"
 else
     GITEA_DISPLAY="${R}● stopped${N}"
 fi
@@ -81,7 +84,7 @@ if [[ -d "$BACKUP_DIR/.git" ]]; then
     RECENT_COMMITS=$(git -C "$BACKUP_DIR" log --oneline -3 2>/dev/null \
         | awk '{print "  " $0}' || echo "  no commits yet")
 else
-    RECENT_COMMITS="  repo not initialised yet — run setup-gitea.sh"
+    RECENT_COMMITS="  repo not initialised yet — run install.sh"
 fi
 
 # ─── Output ───────────────────────────────────────────────────────────────────

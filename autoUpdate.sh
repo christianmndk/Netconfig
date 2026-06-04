@@ -1,54 +1,36 @@
 #!/bin/bash
-# autoUpdate.sh — watches ~/network-backups for changes and auto-commits to Gitea
-# Runs as a systemd service (netconfig-watcher.service), not from cron.
+# autoUpdate.sh — polls ~/network-backups every 30s and auto-commits changes to Gitea
+# Runs as a systemd service (netconfig-watcher@.service).
 
 MONITOR_DIR="$HOME/network-backups"
-GITEA_URL="http://localhost:3000"
-GITEA_USER="$(whoami)"
+POLL_INTERVAL=30
 
-# ─── Ensure backup dir is a valid git repo linked to Gitea ───────────────────
 mkdir -p "$MONITOR_DIR"
 cd "$MONITOR_DIR"
 
-if [[ ! -d ".git" ]]; then
-    echo "No git repo found — initialising and linking to Gitea..."
-    git init
-    git remote add origin "$GITEA_URL/$GITEA_USER/network-backups.git"
+if ! git -C "$MONITOR_DIR" rev-parse --git-dir > /dev/null 2>&1; then
+    echo "$(date +'%Y-%m-%d %H:%M:%S') ERROR: $MONITOR_DIR is not a git repo — run install.sh first"
+    exit 1
 fi
 
-# Ensure remote is set in case it was init'd bare
-if ! git remote get-url origin &>/dev/null; then
-    git remote add origin "$GITEA_URL/$GITEA_USER/network-backups.git"
-fi
+git pull origin main --quiet 2>/dev/null || true
 
-# Pull latest from Gitea if remote has commits
-if git fetch origin 2>/dev/null; then
-    if git ls-remote --exit-code origin main &>/dev/null; then
-        git checkout -b main --track origin/main 2>/dev/null || \
-        git branch --set-upstream-to=origin/main main 2>/dev/null || true
-        git pull origin main --quiet 2>/dev/null || true
-        echo "Repo synced with Gitea."
+echo "$(date +'%Y-%m-%d %H:%M:%S') Watcher started on $MONITOR_DIR (polling every ${POLL_INTERVAL}s)"
+
+while true; do
+    if [[ -n "$(git -C "$MONITOR_DIR" status --porcelain 2>/dev/null)" ]]; then
+        git -C "$MONITOR_DIR" pull origin main --quiet 2>/dev/null || true
+        git -C "$MONITOR_DIR" add -A
+
+        CHANGED=$(git -C "$MONITOR_DIR" diff --cached --name-only | tr '\n' ' ')
+        git -C "$MONITOR_DIR" commit -m "Auto backup: $(date +'%Y-%m-%d %H:%M') — ${CHANGED%% }"
+
+        if git -C "$MONITOR_DIR" push origin main 2>/dev/null; then
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Pushed: $CHANGED"
+        else
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Push failed — check Gitea connectivity"
+        fi
     fi
-fi
-# ─────────────────────────────────────────────────────────────────────────────
 
-echo "Watcher started on $MONITOR_DIR at $(date)..."
-
-inotifywait -m -e close_write --format '%f' "$MONITOR_DIR" | while read FILE; do
-    # Ignore git internals
-    [[ "$FILE" == .git* ]] && continue
-
-    echo "Change detected: $FILE — committing to Gitea..."
-    cd "$MONITOR_DIR"
-
-    git pull origin main --quiet
-    git add "$FILE"
-    git commit -m "Auto backup: $FILE ($(date +'%Y-%m-%d %H:%M'))"
-    git push origin main
-
-    if [[ $? -eq 0 ]]; then
-        echo "  Pushed: $FILE"
-    else
-        echo "  Push failed for $FILE — check Gitea connectivity"
-    fi
+    sleep $POLL_INTERVAL
 done

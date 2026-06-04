@@ -1,6 +1,12 @@
 # Network Device Inventory
-# Add or remove devices here — scripts read this file automatically.
-# Types: cisco, pfsense, generic
+# Add or remove devices here — GetConfigs.sh reads this file automatically.
+#
+# Fields:
+#   name      — display name (used in logs and commit messages)
+#   ip        — device IP address
+#   type      — device type (cisco)
+#   username  — SSH username (optional, defaults to: admin)
+#   filename  — local filename to save the config as
 
 devices:
   - name: SW01
@@ -21,14 +27,11 @@ devices:
   - name: RT01
     ip: 192.168.99.2
     type: cisco
+    username: admin
     filename: rt01.conf
 
   - name: RT02
     ip: 192.168.99.3
     type: cisco
+    username: admin
     filename: rt02.conf
-
-  - name: FW01
-    ip: 10.10.10.2
-    type: pfsense
-    filename: firewall.xml
