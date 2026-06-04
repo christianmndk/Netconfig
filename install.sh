@@ -81,24 +81,31 @@ apt-get install -y -qq \
 echo -e "  ${G}✓${N} Done"
 
 # ── [2/7] SSH hardening ───────────────────────────────────────────────────────
-echo -e "${C}  [2/7] Hardening SSH...${N}"
-if [[ "$TARGET_USER" == "root" ]]; then
-    cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
+echo -e "${C}  [2/7] SSH hardening...${N}"
+AUTH_KEYS="$TARGET_HOME/.ssh/authorized_keys"
+if [[ -s "$AUTH_KEYS" ]]; then
+    if [[ "$TARGET_USER" == "root" ]]; then
+        cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 PubkeyAuthentication yes
 X11Forwarding no
 EOF
-else
-    cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
+    else
+        cat > /etc/ssh/sshd_config.d/99-netconfig.conf <<EOF
 PermitRootLogin no
 PasswordAuthentication no
 PubkeyAuthentication yes
 X11Forwarding no
 EOF
+    fi
+    systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+    echo -e "  ${G}✓${N} SSH hærdet (kun nøgle)"
+else
+    echo -e "  ${Y}~${N} Ingen authorized_keys fundet — springer SSH hardening over"
+    echo -e "  ${D}  Tilføj din nøgle til $AUTH_KEYS og kør:${N}"
+    echo -e "  ${D}  sudo bash $SCRIPT_DIR/install.sh${N}"
 fi
-systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
-echo -e "  ${G}✓${N} Done"
 
 # ── [3/7] Firewall ────────────────────────────────────────────────────────────
 echo -e "${C}  [3/7] Configuring firewall...${N}"
