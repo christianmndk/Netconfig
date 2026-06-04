@@ -1,122 +1,83 @@
 # NetConfig
 
-Self-hosted network configuration backup and automation server.
+Selvhostet backup-system til netværksudstyr. Henter running-config fra Cisco switches og routere hver nat, committer ændringer automatisk til en lokal Gitea-instans, og holder styr på historikken i git.
 
-Runs on a fresh Debian/Ubuntu VM. Backs up running configs from all network
-devices every night, auto-commits changes to a local Gitea instance, and
-watches for file changes in real time.
+Designet til at køre på Debian 12/13 eller Ubuntu 21+ — VM eller LXC container (Proxmox, ESXi, Hyper-V).
 
-## What's running
+---
 
-| Component | What it does |
+## Hvad kører der
+
+| Komponent | Hvad den gør |
 |---|---|
-| **Gitea** | Self-hosted git server — stores all device configs |
-| **Postgres** | Database backend for Gitea (no manual setup needed) |
-| **GetConfigs.sh** | Pulls running configs from all devices nightly at 02:00 |
-| **autoUpdate.sh** | Watches backup folder, auto-commits any changes to Gitea |
+| **Gitea** | Selvhostet git-server — gemmer alle device-configs |
+| **Postgres** | Database-backend til Gitea (sættes op automatisk) |
+| **GetConfigs.sh** | Henter running-config fra alle enheder kl. 02:00 |
+| **autoUpdate.sh** | Poller backup-mappen hvert 30. sekund og committer ændringer |
+
+Gitea kører på port **80** (web UI) og **2222** (git SSH).
 
 ---
 
-## Setup — fresh VM
+## Installation
 
-### Prerequisites
-- Fresh Debian or Ubuntu install (terminal only)
-- You are logged in as your normal user (e.g. `Gitra_adm`)
-- SSH key already on the VM
+### Krav
+- Frisk Debian 12/13 eller Ubuntu 21+ (kun terminal)
+- SSH-nøgle på maskinen (password-login deaktiveres under setup)
+- Internetadgang (til apt og Docker-images)
+
+> **LXC på Proxmox:** Containeren skal være privilegeret og have _Nesting_ aktiveret for at Docker virker.
 
 ---
 
-### Step 1 — Run the main setup script
-
-Clone this repo and run `setup.sh` as root:
+### Klon og kør
 
 ```bash
-git clone https://github.com/YOU/NetConfig.git
+git clone http://DIN_GITEA_URL/madsen/NetConfig.git
 cd NetConfig
-sudo ./setup.sh YOUR_USERNAME
+bash install.sh
 ```
 
-Replace `YOUR_USERNAME` with your actual login name (e.g. `Gitra_adm`).
+Scriptet håndterer `sudo` selv — kør det bare som din normale bruger.
 
-This will:
-- Update the system and install dependencies
-- Harden SSH (key-only, no root login)
-- Configure the firewall (ports 22, 3000, 2222)
-- Install Docker
-- Start Gitea and Postgres via Docker Compose
-- Set up the backup directory
-- Install the systemd watcher service and nightly cron job
+Du bliver bedt om at vælge et **Gitea-brugernavn og password** i starten. Så klarer det resten:
 
-When it finishes it will print the IP and tell you to continue to Step 2.
+1. Opdaterer systemet og installerer afhængigheder
+2. Hærder SSH (kun nøgle, ingen root-login)
+3. Konfigurerer firewall (port 22, 80, 2222)
+4. Installerer Docker
+5. Starter Gitea og Postgres via Docker Compose
+6. Opretter Gitea-admin-kontoen automatisk (ingen browser-wizard)
+7. Opretter `network-backups`-repo i Gitea
+8. Initialiserer lokalt git-repo og linker det til Gitea
+9. Installerer systemd-watcher-service og nightly cron-job
+10. Installerer MOTD
+
+Når det er færdigt er systemet live. Ingen ekstra trin.
 
 ---
 
-### Step 2 — Configure Gitea
-
-Open a browser and go to:
-
-```
-http://YOUR_VM_IP
-```
-
-Fill in the first-run wizard with these settings:
-
-| Field | Value |
-|---|---|
-| Database type | PostgreSQL |
-| Host | `postgres:5432` |
-| Database name | `gitea` |
-| Username | `gitea` |
-| Password | `gitea` |
-
-Scroll down to **Administrator account** and create your admin user.
-Use the same username as your Linux user (e.g. `Gitra_adm`) to keep things simple.
-
-Click **Install Gitea** and wait for it to finish.
-
----
-
-### Step 3 — Run the Gitea setup script
-
-Back on the VM, run the second script **as your normal user — not sudo**:
+## Verificer at det virker
 
 ```bash
-bash ~/NetConfig/setup-gitea.sh
-```
+# Tjek at watcher-servicen kører
+sudo systemctl status netconfig-watcher@DIT_BRUGERNAVN
 
-It will ask for your Gitea username and password, then:
-- Create the `network-backups` repo in Gitea automatically
-- Initialise the local backup directory as a git repo
-- Store credentials so pushes never prompt
-- Start the autoUpdate watcher service
-
-When it finishes the system is fully live.
-
----
-
-## Verifying everything works
-
-Check the watcher is running:
-```bash
-sudo systemctl status netconfig-watcher@YOUR_USERNAME
-```
-
-Trigger a test commit:
-```bash
+# Test commit (vises i Gitea inden for ~30 sekunder)
 touch ~/network-backups/test.conf
-# Wait a few seconds, then check http://YOUR_VM_IP
-```
 
-Check the nightly cron is registered:
-```bash
+# Tjek at cron-job er registreret
 crontab -l
+
+# Tjek at Gitea kører
+docker ps
 ```
 
 ---
 
-## Adding or changing devices
+## Tilføj eller ændr enheder
 
-Edit `devices.yml`:
+Redigér `devices.yml`:
 
 ```yaml
 devices:
@@ -124,34 +85,84 @@ devices:
     ip: 192.168.99.7
     type: cisco
     filename: sw04.conf
+
+  - name: RT03
+    ip: 192.168.99.10
+    type: cisco
+    username: cisco        # valgfrit — default er "admin"
+    filename: rt03.conf
 ```
 
-Supported types: `cisco`, `pfsense`, `generic`
+Felter:
+
+| Felt | Påkrævet | Beskrivelse |
+|---|---|---|
+| `name` | Ja | Visningsnavn (bruges i logs og commit-beskeder) |
+| `ip` | Ja | IP-adresse på enheden |
+| `type` | Ja | Enhedstype — kun `cisco` understøttes p.t. |
+| `username` | Nej | SSH-brugernavn — default: `admin` |
+| `filename` | Ja | Filnavn config gemmes som i backup-mappen |
+
+Ændringer træder i kraft næste gang `GetConfigs.sh` kører (kl. 02:00), eller du kører den manuelt.
 
 ---
 
-## Useful commands
+## SSH-nøgler til Cisco-udstyr
+
+Backup-scriptet bruger SCP og kræver nøglebaseret SSH. Brug `cisco-ssh-key.sh` til at hjælpe med formatering af nøgler til IOS-enheder:
 
 ```bash
-# Check watcher status
-sudo systemctl status netconfig-watcher@YOUR_USERNAME
-
-# Restart watcher after config changes
-sudo systemctl restart netconfig-watcher@YOUR_USERNAME
-
-# Manually trigger a backup run
-~/NetConfig/GetConfigs.sh
-
-# View last cron log
-tail -f ~/network-backups/cron.log
-
-# Restart Gitea and Postgres
-docker compose -f /opt/netconfig-docker/compose.yml restart
+bash ~/NetConfig/cisco-ssh-key.sh admin SW01
 ```
 
 ---
 
-## Known limitations / future improvements
+## Nyttige kommandoer
 
-- Gitea admin user still needs to be created manually via the web UI
-- `setup-gitea.sh` will exit with an error if accidentally run with `sudo` — always run it as your normal user
+```bash
+# Manuel backup-kørsel
+~/NetConfig/GetConfigs.sh
+
+# Følg backup-loggen
+tail -f ~/network-backups/cron.log
+
+# Genstart watcher (f.eks. efter ændringer i autoUpdate.sh)
+sudo systemctl restart netconfig-watcher@DIT_BRUGERNAVN
+
+# Genstart Gitea og Postgres
+docker compose -f /opt/netconfig-docker/compose.yml restart
+
+# Se Docker-container-status
+docker ps
+
+# Se Gitea-logs
+docker logs gitea
+```
+
+---
+
+## Mappestruktur
+
+```
+NetConfig/
+├── install.sh                  Fuld installation — ét script, ingen ekstra trin
+├── GetConfigs.sh               Henter configs fra alle enheder i devices.yml
+├── autoUpdate.sh               Polling-loop — committer ændringer til Gitea
+├── cisco-ssh-key.sh            Hjælpescript til SSH-nøgler på Cisco-udstyr
+├── compose.yml                 Docker Compose — Gitea + Postgres
+├── devices.yml                 Enhedsliste — redigér denne for at tilføje/fjerne enheder
+├── netconfig-watcher@.service  systemd-servicetemplate (install.sh skriver den rigtige)
+├── 99-netconfig                MOTD — vises ved SSH-login
+└── pfsense/
+    └── pfsense_backup.sh       Standalone pfSense-backup (ikke del af hovdflowet)
+```
+
+---
+
+## Geninstallation
+
+`install.sh` er idempotent — du kan køre det igen uden at det ødelægger noget:
+- Eksisterende Docker-containers springes ikke over (de genstartes ikke unødigt)
+- Gitea-admin-konto og repo springes over hvis de allerede eksisterer
+- Git-repo'et i `~/network-backups` springes over hvis det allerede er initialiseret
+- Cron-job de-duplikeres automatisk
