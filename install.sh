@@ -138,14 +138,20 @@ docker compose -f /opt/netconfig-docker/compose.yml up -d
 wait_for_gitea
 
 echo -e "  Creating Gitea admin account '${GITEA_USER}'..."
-if docker exec gitea gitea admin user create \
+CREATE_OUTPUT=$(docker exec -u git gitea gitea admin user create \
     --username "$GITEA_USER" \
     --password "$GITEA_PASS" \
     --email "$GITEA_USER@netconfig.local" \
-    --admin 2>/dev/null; then
+    --admin 2>&1) && CREATE_OK=true || CREATE_OK=false
+
+if $CREATE_OK; then
     echo -e "  ${G}✓${N} Admin account created"
-else
+elif echo "$CREATE_OUTPUT" | grep -q "user already exists"; then
     echo -e "  ${Y}~${N} Account already exists — continuing"
+else
+    echo -e "  ${R}✗ Kunne ikke oprette Gitea-konto:${N}"
+    echo "  $CREATE_OUTPUT"
+    exit 1
 fi
 
 # ── [6/7] network-backups repo + local git ────────────────────────────────────
