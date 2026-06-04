@@ -107,13 +107,15 @@ Felter:
 
 ---
 
-## SSH-nøgler til Cisco-udstyr
+## Tilføj en enhed
 
-Backup-scriptet bruger SCP og kræver nøglebaseret SSH. Brug `cisco-ssh-key.sh` til at hjælpe med formatering af nøgler til IOS-enheder:
+Kør `add-device.sh` — den guider dig igennem hele processen:
 
 ```bash
-bash ~/NetConfig/cisco-ssh-key.sh admin SW01
+bash ~/NetConfig/add-device.sh
 ```
+
+Den genererer automatisk en SSH-nøgle hvis der ikke er en, pinger enheden, og udskriver de IOS-kommandoer du skal paste ind i Cisco-konsollen. Enheden tilføjes kommenteret ud i `devices.yml` — fjern `#` foran linjerne når nøglen er sat op.
 
 ---
 
@@ -145,16 +147,15 @@ docker logs gitea
 
 ```
 NetConfig/
-├── install.sh                  Fuld installation — ét script, ingen ekstra trin
-├── GetConfigs.sh               Henter configs fra alle enheder i devices.yml
-├── autoUpdate.sh               Polling-loop — committer ændringer til Gitea
-├── cisco-ssh-key.sh            Hjælpescript til SSH-nøgler på Cisco-udstyr
-├── compose.yml                 Docker Compose — Gitea + Postgres
-├── devices.yml                 Enhedsliste — redigér denne for at tilføje/fjerne enheder
-├── netconfig-watcher@.service  systemd-servicetemplate (install.sh skriver den rigtige)
-├── 99-netconfig                MOTD — vises ved SSH-login
+├── install.sh              Fuld installation — ét script, ingen ekstra trin
+├── add-device.sh           Tilføj en Cisco-enhed (SSH-nøgle + devices.yml)
+├── GetConfigs.sh           Henter configs fra alle enheder i devices.yml
+├── autoUpdate.sh           Polling-loop — committer ændringer til Gitea
+├── compose.yml             Docker Compose — Gitea + Postgres
+├── devices.yml             Enhedsliste — redigér denne for at tilføje/fjerne enheder
+├── 99-netconfig            MOTD — vises ved SSH-login
 └── pfsense/
-    └── pfsense_backup.sh       Standalone pfSense-backup (ikke del af hovdflowet)
+    └── pfsense_backup.sh   Standalone pfSense-backup (ikke del af hovedflowet)
 ```
 
 ---
