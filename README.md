@@ -33,7 +33,7 @@ Gitea kører på port **80** (web UI) og **2222** (git SSH).
 ### Klon og kør
 
 ```bash
-git clone http://DIN_GITEA_URL/madsen/NetConfig.git
+git clone https://github.com/christianmndk/Netconfig.git
 cd NetConfig
 bash install.sh
 ```
