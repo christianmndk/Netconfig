@@ -9,29 +9,13 @@
 #   filename  — local filename to save the config as
 
 devices:
-  - name: SW01
-    ip: 192.168.99.4
-    type: cisco
-    filename: sw01.conf
+#  - name: RT01
+#    ip: 192.168.99.2
+#    type: cisco
+#    username: admin
+#    filename: rt01.conf
 
-  - name: SW02
-    ip: 192.168.99.5
-    type: cisco
-    filename: sw02.conf
-
-  - name: SW03
-    ip: 192.168.99.6
-    type: cisco
-    filename: sw03.conf
-
-  - name: RT01
-    ip: 192.168.99.2
-    type: cisco
-    username: admin
-    filename: rt01.conf
-
-  - name: RT02
-    ip: 192.168.99.3
-    type: cisco
-    username: admin
-    filename: rt02.conf
+#  - name: SW01
+#    ip: 192.168.99.3
+#    type: cisco
+#    filename: sw01.conf
