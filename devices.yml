@@ -4,7 +4,8 @@
 # Fields:
 #   name      — display name (used in logs and commit messages)
 #   ip        — device IP address
-#   type      — device type (cisco)
+#   type      — device type: "cisco" (fetches running-config)
+#               or "pfsense" (fetches /cf/conf/config.xml)
 #   username  — SSH username (optional, defaults to: admin)
 #   filename  — local filename to save the config as
 
@@ -19,3 +20,9 @@ devices:
 #    ip: 192.168.99.3
 #    type: cisco
 #    filename: sw01.conf
+
+#  - name: FW01
+#    ip: 192.168.99.1
+#    type: pfsense
+#    username: admin
+#    filename: fw01.xml
