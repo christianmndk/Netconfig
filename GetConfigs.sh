@@ -16,18 +16,41 @@ fetch_device() {
     [[ -z "$NAME" || -z "$IP" || -z "$FILENAME" ]] && return
 
     local user="${USERNAME:-admin}"
-    echo "Fetching $NAME ($IP) as $user..."
+    local type="${TYPE:-cisco}"
+
+    # Each device type exposes its config at a different remote path.
+    local remote
+    case "$type" in
+        cisco)
+            remote="running-config"
+            ;;
+        pfsense)
+            # pfSense keeps its full configuration as one XML file.
+            # /conf is a symlink to /cf/conf, so /cf/conf/config.xml is the
+            # canonical location on the underlying FreeBSD filesystem.
+            remote="/cf/conf/config.xml"
+            ;;
+        *)
+            echo "  SKIPPED: $NAME ($IP) — unknown type '$type'"
+            NAME="" IP="" TYPE="" FILENAME="" USERNAME=""
+            return
+            ;;
+    esac
+
+    echo "Fetching $NAME ($IP) as $user [$type]..."
 
     # Old Cisco IOS SSH stacks only speak legacy algorithms that modern
     # OpenSSH disables by default; re-enable them (append, don't replace)
     # so the client still prefers modern algorithms where devices support them.
+    # pfSense runs a modern OpenSSH, so the appended legacy algorithms are
+    # simply ignored there and the modern ones are used instead.
     local err
     if err=$(scp -O -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
         -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1 \
         -o HostKeyAlgorithms=+ssh-rsa \
         -o PubkeyAcceptedAlgorithms=+ssh-rsa \
         -o Ciphers=+aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc \
-        "$user@$IP:running-config" "$BACKUP_DIR/$FILENAME" 2>&1); then
+        "$user@$IP:$remote" "$BACKUP_DIR/$FILENAME" 2>&1); then
         echo "  OK: $NAME"
     else
         echo "  FAILED: $NAME ($IP) — ${err:-unknown error}"

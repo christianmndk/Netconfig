@@ -91,6 +91,12 @@ devices:
     type: cisco
     username: cisco        # valgfrit — default er "admin"
     filename: rt03.conf
+
+  - name: FW01
+    ip: 192.168.99.1
+    type: pfsense          # henter /cf/conf/config.xml
+    username: admin
+    filename: fw01.xml
 ```
 
 Felter:
@@ -99,9 +105,11 @@ Felter:
 |---|---|---|
 | `name` | Ja | Visningsnavn (bruges i logs og commit-beskeder) |
 | `ip` | Ja | IP-adresse på enheden |
-| `type` | Ja | Enhedstype — kun `cisco` understøttes p.t. |
+| `type` | Ja | Enhedstype — `cisco` (running-config) eller `pfsense` (`/cf/conf/config.xml`) |
 | `username` | Nej | SSH-brugernavn — default: `admin` |
 | `filename` | Ja | Filnavn config gemmes som i backup-mappen |
+
+**pfSense:** Sørg for at SSH-nøglen er lagt ind under **System → User Manager → brugerens Authorized keys**, og at brugeren har shell-adgang. Så henter `GetConfigs.sh` config-XML'en automatisk sammen med resten. Det separate `pfsense/pfsense_backup.sh` er stadig med til manuel/standalone brug.
 
 Ændringer træder i kraft næste gang `GetConfigs.sh` kører (kl. 02:00), eller du kører den manuelt.
 
