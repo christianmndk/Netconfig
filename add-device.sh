@@ -97,10 +97,11 @@ cat >> "$DEVICES_FILE" <<EOF
   #   ip: $DEVICE_IP
   #   type: cisco
   #   username: $DEVICE_USER
+  #   enabled: true
   #   filename: $DEVICE_FILE
 EOF
 
 echo -e "  ${G}✓${N} $DEVICE_NAME tilføjet i devices.yml (kommenteret ud)"
 echo -e "  ${D}Fil: $DEVICES_FILE${N}"
-echo -e "  ${D}Fjern # foran de 5 linjer når du har pastet nøglen ind.${N}"
+echo -e "  ${D}Fjern # foran de 6 linjer når du har pastet nøglen ind.${N}"
 echo ""

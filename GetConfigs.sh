@@ -28,7 +28,7 @@ if ! command -v sshpass &>/dev/null && grep -q '^\s*auth:\s*password' "$DEVICES_
     echo "  WARNING: devices.yml has auth: password entries but 'sshpass' is not installed (apt install sshpass)"
 fi
 
-NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH=""
+NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH="" ENABLED=""
 
 fetch_device() {
     [[ -z "$NAME" || -z "$IP" || -z "$FILENAME" ]] && return
@@ -36,6 +36,13 @@ fetch_device() {
     local user="${USERNAME:-admin}"
     local type="${TYPE:-cisco}"
     local auth="${AUTH:-key}"
+    local enabled="${ENABLED:-true}"
+
+    if [[ "$enabled" != "true" ]]; then
+        echo "  SKIPPED: $NAME ($IP) — enabled: false"
+        NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH="" ENABLED=""
+        return
+    fi
 
     # Each device type exposes its config at a different remote path.
     local remote
@@ -51,7 +58,7 @@ fetch_device() {
             ;;
         *)
             echo "  SKIPPED: $NAME ($IP) — unknown type '$type'"
-            NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH=""
+            NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH="" ENABLED=""
             return
             ;;
     esac
@@ -63,7 +70,7 @@ fetch_device() {
         local pass="${SECRETS[$NAME]}"
         if [[ -z "$pass" ]]; then
             echo "  FAILED: $NAME ($IP) — auth: password but no entry for '$NAME' in secrets.yml"
-            NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH=""
+            NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH="" ENABLED=""
             return
         fi
         # Password goes through the SSHPASS env var (sshpass -e), never -p,
@@ -93,7 +100,7 @@ fetch_device() {
         fi
     fi
 
-    NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH=""
+    NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH="" ENABLED=""
 }
 
 while IFS= read -r line; do
@@ -110,6 +117,8 @@ while IFS= read -r line; do
         USERNAME="${BASH_REMATCH[1]}"
     elif [[ "$line" =~ ^[[:space:]]*auth:[[:space:]]*(.+) ]]; then
         AUTH="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*enabled:[[:space:]]*(.+) ]]; then
+        ENABLED="${BASH_REMATCH[1]}"
     fi
 done < "$DEVICES_FILE"
 

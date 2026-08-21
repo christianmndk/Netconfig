@@ -104,6 +104,12 @@ devices:
     username: svc-netconfig  # dedikeret AD-konto
     auth: password            # RADIUS/AD-login — kan ikke bruge SSH-nøgle
     filename: rt03.conf
+
+  - name: SW02
+    ip: 192.168.99.4
+    type: cisco
+    enabled: false            # udgået/utilgængelig — springes over af GetConfigs.sh
+    filename: sw02.conf
 ```
 
 Felter:
@@ -115,6 +121,7 @@ Felter:
 | `type` | Ja | Enhedstype — `cisco` (running-config) eller `pfsense` (`/cf/conf/config.xml`) |
 | `username` | Nej | SSH-brugernavn — default: `admin` |
 | `auth` | Nej | `key` (default) eller `password` — se afsnittet om `secrets.yml` nedenfor |
+| `enabled` | Nej | `true` (default) eller `false` — sæt `false` for at beholde enheden i listen men springe den over ved backup |
 | `filename` | Ja | Filnavn config gemmes som i backup-mappen |
 
 **pfSense:** Sørg for at SSH-nøglen er lagt ind under **System → User Manager → brugerens Authorized keys**, og at brugeren har shell-adgang. Så henter `GetConfigs.sh` config-XML'en automatisk sammen med resten. Det separate `pfsense/pfsense_backup.sh` er stadig med til manuel/standalone brug.

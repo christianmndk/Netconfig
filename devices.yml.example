@@ -15,6 +15,9 @@
 #               that can't use SSH keys (e.g. RADIUS/AD-backed login) — the
 #               actual password goes in secrets.yml, keyed by device name.
 #               See secrets.yml.example.
+#   enabled   — true (default) or false. Set false to keep a device listed
+#               but skip it during backup (e.g. decommissioned, temporarily
+#               unreachable) without deleting its config.
 #   filename  — local filename to save the config as
 
 devices:
@@ -41,3 +44,9 @@ devices:
 #    username: svc-netconfig     # dedicated AD account, checked via RADIUS
 #    auth: password              # password lives in secrets.yml, not here
 #    filename: rt03.conf
+
+#  - name: SW02
+#    ip: 192.168.99.4
+#    type: cisco
+#    enabled: false               # decommissioned — kept for reference, skipped by GetConfigs.sh
+#    filename: sw02.conf
