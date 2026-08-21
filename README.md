@@ -77,7 +77,7 @@ docker ps
 
 ## Tilføj eller ændr enheder
 
-Redigér `devices.yml`:
+Redigér `devices.yml`. Filen er gitignored og lokal for din installation — den bliver oprettet fra `devices.yml.example` under installation, og en fremtidig `update.sh` / `git pull` rører aldrig den, så dine enheder er trygge ved opdatering.
 
 ```yaml
 devices:
@@ -158,6 +158,22 @@ Den genererer automatisk en SSH-nøgle hvis der ikke er en, pinger enheden, og u
 
 ---
 
+## Opdatering
+
+Kør `update.sh` for at hente de nyeste scripts:
+
+```bash
+bash ~/NetConfig/update.sh
+```
+
+Den henter ændringer via `git pull`, men rører aldrig `devices.yml` eller `secrets.yml` — de er gitignored lokal config, ikke en del af repoet. Scriptet opdaterer også MOTD og genstarter watcher-servicen hvis nødvendigt.
+
+Hvis `compose.yml` eller systemd/cron-opsætningen i `install.sh` er ændret upstream, kør `sudo bash install.sh` igen (det er idempotent — se afsnittet nedenfor).
+
+> Opgraderer du fra en ældre installation hvor `devices.yml` stadig var sporet i git? `update.sh` opdager det automatisk, untracker filen (uden at røre indholdet) og fortsætter.
+
+---
+
 ## Nyttige kommandoer
 
 ```bash
@@ -187,11 +203,13 @@ docker logs gitea
 ```
 NetConfig/
 ├── install.sh              Fuld installation — ét script, ingen ekstra trin
+├── update.sh               Opdater scripts sikkert uden at røre devices.yml/secrets.yml
 ├── add-device.sh           Tilføj en Cisco-enhed (SSH-nøgle + devices.yml)
 ├── GetConfigs.sh           Henter configs fra alle enheder i devices.yml
 ├── autoUpdate.sh           Polling-loop — committer ændringer til Gitea
 ├── compose.yml             Docker Compose — Gitea + Postgres
-├── devices.yml             Enhedsliste — redigér denne for at tilføje/fjerne enheder
+├── devices.yml.example     Template til devices.yml (kopieres automatisk af install.sh)
+├── devices.yml             Enhedsliste (gitignored, lokal) — redigér denne for at tilføje/fjerne enheder
 ├── secrets.yml.example     Template til secrets.yml (kopiér, udfyld, chmod 600)
 ├── 99-netconfig            MOTD — vises ved SSH-login
 └── pfsense/

@@ -1,2 +1,6 @@
 # Contains real device passwords — never commit. See secrets.yml.example.
 secrets.yml
+
+# Local device inventory — never commit, and never let a pull overwrite it.
+# See devices.yml.example.
+devices.yml

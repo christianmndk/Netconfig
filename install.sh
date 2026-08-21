@@ -205,6 +205,12 @@ echo -e "${C}  [7/7] Installing watcher, cron job, and MOTD...${N}"
 
 chmod +x "$SCRIPT_DIR/"*.sh
 
+if [[ ! -f "$SCRIPT_DIR/devices.yml" ]]; then
+    cp "$SCRIPT_DIR/devices.yml.example" "$SCRIPT_DIR/devices.yml"
+    chown "$TARGET_USER" "$SCRIPT_DIR/devices.yml" 2>/dev/null || true
+    echo -e "  ${G}✓${N} Created devices.yml from template"
+fi
+
 # Write config file so MOTD and other tools can find the right user/paths
 cat > /etc/netconfig.conf <<EOF
 NETCONFIG_USER=$TARGET_USER

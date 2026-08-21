@@ -1,5 +1,9 @@
-# Network Device Inventory
-# Add or remove devices here — GetConfigs.sh reads this file automatically.
+# Network Device Inventory — template
+#
+# This file is tracked in git and never edited directly. On first install
+# it's copied to devices.yml (gitignored, local-only) — edit that one, or
+# use add-device.sh. Keeping devices.yml out of git means `update.sh` /
+# `git pull` can never overwrite or conflict with your real device list.
 #
 # Fields:
 #   name      — display name (used in logs and commit messages)
