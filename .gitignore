@@ -1,0 +1,2 @@
+# Contains real device passwords — never commit. See secrets.yml.example.
+secrets.yml

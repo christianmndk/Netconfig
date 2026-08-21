@@ -76,7 +76,7 @@ echo -e "${C}  [1/7] Updating system and installing dependencies...${N}"
 apt-get update -qq && apt-get upgrade -y -qq
 apt-get install -y -qq \
     curl git ufw fail2ban \
-    openssh-client \
+    openssh-client sshpass \
     ca-certificates gnupg lsb-release
 echo -e "  ${G}✓${N} Done"
 

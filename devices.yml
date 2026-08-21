@@ -7,6 +7,10 @@
 #   type      — device type: "cisco" (fetches running-config)
 #               or "pfsense" (fetches /cf/conf/config.xml)
 #   username  — SSH username (optional, defaults to: admin)
+#   auth      — "key" (default) or "password". Use "password" for devices
+#               that can't use SSH keys (e.g. RADIUS/AD-backed login) — the
+#               actual password goes in secrets.yml, keyed by device name.
+#               See secrets.yml.example.
 #   filename  — local filename to save the config as
 
 devices:
@@ -26,3 +30,10 @@ devices:
 #    type: pfsense
 #    username: admin
 #    filename: fw01.xml
+
+#  - name: RT03
+#    ip: 192.168.99.11
+#    type: cisco
+#    username: svc-netconfig     # dedicated AD account, checked via RADIUS
+#    auth: password              # password lives in secrets.yml, not here
+#    filename: rt03.conf
