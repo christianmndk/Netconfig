@@ -97,6 +97,13 @@ devices:
     type: pfsense          # henter /cf/conf/config.xml
     username: admin
     filename: fw01.xml
+
+  - name: RT03
+    ip: 192.168.99.11
+    type: cisco
+    username: svc-netconfig  # dedikeret AD-konto
+    auth: password            # RADIUS/AD-login — kan ikke bruge SSH-nøgle
+    filename: rt03.conf
 ```
 
 Felter:
@@ -107,11 +114,35 @@ Felter:
 | `ip` | Ja | IP-adresse på enheden |
 | `type` | Ja | Enhedstype — `cisco` (running-config) eller `pfsense` (`/cf/conf/config.xml`) |
 | `username` | Nej | SSH-brugernavn — default: `admin` |
+| `auth` | Nej | `key` (default) eller `password` — se afsnittet om `secrets.yml` nedenfor |
 | `filename` | Ja | Filnavn config gemmes som i backup-mappen |
 
 **pfSense:** Sørg for at SSH-nøglen er lagt ind under **System → User Manager → brugerens Authorized keys**, og at brugeren har shell-adgang. Så henter `GetConfigs.sh` config-XML'en automatisk sammen med resten. Det separate `pfsense/pfsense_backup.sh` er stadig med til manuel/standalone brug.
 
 Ændringer træder i kraft næste gang `GetConfigs.sh` kører (kl. 02:00), eller du kører den manuelt.
+
+---
+
+## Enheder med password-login (fx RADIUS/AD)
+
+De fleste enheder bør bruge SSH-nøgle (`auth: key`, default). Men nogle enheder — typisk switches/routere hvor login går gennem RADIUS mod AD med en dedikeret service-konto — understøtter ikke pubkey-auth og skal bruge et rigtigt password.
+
+For de enheder: sæt `auth: password` på enheden i `devices.yml`, og læg selve passwordet i en separat `secrets.yml` ved siden af — **aldrig i `devices.yml`, og aldrig i git**.
+
+```bash
+cp secrets.yml.example secrets.yml
+chmod 600 secrets.yml
+```
+
+```yaml
+# secrets.yml
+secrets:
+  RT03: det-rigtige-password
+```
+
+`secrets.yml` er tilføjet til `.gitignore` og bliver aldrig committet. `GetConfigs.sh` slår password op i den (via `sshpass`) ved kørsel og advarer i loggen hvis filen mangler rettigheder `600`, eller hvis der er en `auth: password`-enhed uden matchende entry.
+
+Denne løsning beskytter passwordet mod at ligge i klartekst i git-repoet eller devices.yml — den beskytter ikke mod nogen med root-adgang til selve boksen, da cron-jobbet skal kunne læse passwordet uden interaktion. Brug SSH-nøgle hvor det overhovedet er muligt.
 
 ---
 
@@ -161,6 +192,7 @@ NetConfig/
 ├── autoUpdate.sh           Polling-loop — committer ændringer til Gitea
 ├── compose.yml             Docker Compose — Gitea + Postgres
 ├── devices.yml             Enhedsliste — redigér denne for at tilføje/fjerne enheder
+├── secrets.yml.example     Template til secrets.yml (kopiér, udfyld, chmod 600)
 ├── 99-netconfig            MOTD — vises ved SSH-login
 └── pfsense/
     └── pfsense_backup.sh   Standalone pfSense-backup (ikke del af hovedflowet)
