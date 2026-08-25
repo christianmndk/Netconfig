@@ -28,6 +28,22 @@ if ! command -v sshpass &>/dev/null && grep -q '^\s*auth:\s*password' "$DEVICES_
     echo "  WARNING: devices.yml has auth: password entries but 'sshpass' is not installed (apt install sshpass)"
 fi
 
+# Old Cisco IOS SSH stacks only speak legacy algorithms that modern OpenSSH
+# disables by default; re-enable them (append with '+', don't replace) so the
+# client still prefers modern algorithms where devices support them. pfSense
+# runs a modern OpenSSH, so the appended legacy algorithms are simply ignored
+# there and the modern ones are used instead.
+#
+# These apply to BOTH auth paths: algorithm negotiation happens before
+# authentication, so a device that only speaks legacy KEX drops the connection
+# long before the password or key is ever offered.
+LEGACY_SSH_OPTS=(
+    -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1
+    -o HostKeyAlgorithms=+ssh-rsa
+    -o PubkeyAcceptedAlgorithms=+ssh-rsa
+    -o Ciphers=+aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc
+)
+
 NAME="" IP="" TYPE="" FILENAME="" USERNAME="" AUTH=""
 
 fetch_device() {
@@ -68,24 +84,17 @@ fetch_device() {
         fi
         # Password goes through the SSHPASS env var (sshpass -e), never -p,
         # so it doesn't show up in the process list (ps aux).
-        if err=$(SSHPASS="$pass" sshpass -e scp -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
+        if err=$(SSHPASS="$pass" sshpass -e scp -O -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
             -o PreferredAuthentications=keyboard-interactive,password -o PubkeyAuthentication=no \
+            "${LEGACY_SSH_OPTS[@]}" \
             "$user@$IP:$remote" "$BACKUP_DIR/$FILENAME" 2>&1); then
             echo "  OK: $NAME"
         else
             echo "  FAILED: $NAME ($IP) — ${err:-unknown error}"
         fi
     else
-        # Old Cisco IOS SSH stacks only speak legacy algorithms that modern
-        # OpenSSH disables by default; re-enable them (append, don't replace)
-        # so the client still prefers modern algorithms where devices support them.
-        # pfSense runs a modern OpenSSH, so the appended legacy algorithms are
-        # simply ignored there and the modern ones are used instead.
         if err=$(scp -O -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-            -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1 \
-            -o HostKeyAlgorithms=+ssh-rsa \
-            -o PubkeyAcceptedAlgorithms=+ssh-rsa \
-            -o Ciphers=+aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc \
+            "${LEGACY_SSH_OPTS[@]}" \
             "$user@$IP:$remote" "$BACKUP_DIR/$FILENAME" 2>&1); then
             echo "  OK: $NAME"
         else
